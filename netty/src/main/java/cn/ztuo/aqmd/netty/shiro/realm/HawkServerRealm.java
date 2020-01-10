@@ -1,0 +1,72 @@
+/**
+ * Copyright (c) 2016-2017  All Rights Reserved.
+ * 
+ * <p>FileName: HawkServerRealm.java</p>
+ * 
+ * Description: 
+ * @author MrGao
+ * @date 2017年10月26日
+ * @version 1.0
+ * History:
+ * v1.0.0, , 2017年10月26日, Create
+ */
+package cn.ztuo.aqmd.netty.shiro.realm;
+
+import cn.ztuo.aqmd.core.entity.CustomerMsg;
+import cn.ztuo.aqmd.netty.shiro.util.PasswordUtil;
+import cn.ztuo.aqmd.service.LoginUserService;
+import org.apache.shiro.authc.*;
+import org.apache.shiro.realm.Realm;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+
+/**
+ * <p>Title: HawkServerRealm</p>
+ * <p>Description: </p>
+ * @author MrGao
+ * @date 2017年10月26日
+ */
+
+public class HawkServerRealm implements Realm {
+	@Autowired
+	private LoginUserService loginUserService;
+
+    protected final Logger logger = LoggerFactory.getLogger(HawkServerRealm.class);
+
+	@Override  
+    public String getName() {  
+        return "HawkServerRealm";  
+    }  
+	@Override  
+    public boolean supports(AuthenticationToken token) {  
+        //仅支持UsernamePasswordToken类型的Token  
+        return token instanceof UsernamePasswordToken;   
+    }  
+    @SuppressWarnings("rawtypes")
+	@Override  
+    public AuthenticationInfo getAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {  
+        String loginNo = (String)token.getPrincipal();  //得到用户名  
+        String password = new String((char[])token.getCredentials()); //得到密码
+        logger.info("loginNo={},password={}",loginNo,password);
+        CustomerMsg dbUser = loginUserService.findUserByLoginNo(loginNo);
+        logger.info("dbUser={}",dbUser);
+	    if(dbUser==null) {
+	      throw new UnknownAccountException(); //如果用户名错误  
+	    } 
+        String dbPwd = dbUser.getPassword();
+        String salt =  dbUser.getSalt();
+        logger.info("dbPwd={},salt={}",dbPwd,salt);
+        String digestPwd = PasswordUtil.digestEncodedPassword(password, salt);
+
+        if(!dbPwd.equals(digestPwd)) {
+            throw new IncorrectCredentialsException(); //如果密码错误  
+        }  
+        //如果身份认证验证成功，返回一个AuthenticationInfo实现；  
+        return new SimpleAuthenticationInfo(loginNo, password, getName());  
+    }
+    public static void main(String[] args){
+        CustomerMsg s = new CustomerMsg();
+	    System.out.println(PasswordUtil.digestEncodedPassword("d2f7575c5ea7c237725037a267c560f1", "123456"));
+    }
+}
